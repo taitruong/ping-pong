@@ -464,6 +464,7 @@ dependencies = [
  "cosmwasm-storage",
  "cw-multi-test",
  "cw-storage-plus 0.13.2",
+ "cw-utils",
  "cw2 0.13.2",
  "pong",
  "schemars",

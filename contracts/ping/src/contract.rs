@@ -1,15 +1,19 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg, Reply, StdError, SubMsg};
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, GetCountResponse, InstantiateMsg, QueryMsg};
 use crate::state::{State, STATE};
 
+use pong::msg::{InstantiateMsg as PongInstantiateMsg};
+
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:ping";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+const INSTANTIATE_REPLY_ID: u64 = 1;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -25,10 +29,44 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     STATE.save(deps.storage, &state)?;
 
+    // also instantiate pong contract
+    let submessage = SubMsg::reply_on_success(
+        WasmMsg::Instantiate {
+            admin: None,
+            code_id: msg.pong_code_id,
+            msg: to_binary(&PongInstantiateMsg { count: 0 })?,
+            funds: vec![],
+            label: String::from("Instantiate Pong contract"),
+        },
+        INSTANTIATE_REPLY_ID
+    );
+
     Ok(Response::new()
+        .add_submessage(submessage)
         .add_attribute("method", "instantiate")
         .add_attribute("owner", info.sender)
         .add_attribute("count", msg.count.to_string()))
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
+    match msg.id {
+        INSTANTIATE_REPLY_ID => handle_instantiate_reply(deps, msg),
+        id => Err(StdError::generic_err(format!("Unknown reply id: {}", id))),
+    }
+}
+
+fn handle_instantiate_reply(_deps: DepsMut, msg: Reply) -> StdResult<Response> {
+    let sub_msg_response = msg.result.unwrap();
+    let owner_event = sub_msg_response.events
+        .iter()
+        .find(
+            |event| event.ty == "instantiate" && event.attributes.to_owned().into_iter().find(|attr| attr.key == "_contract_addr").is_some()
+        ).unwrap();
+    let owner_attribute = owner_event.attributes.to_owned().into_iter().find(|attr| attr.key == "_contract_addr").unwrap();
+
+    // Save res.contract_address
+    Ok(Response::new().add_attribute("pong address", owner_attribute.value))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -86,12 +124,13 @@ mod tests {
     fn proper_initialization() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { count: 17 };
+        let msg = InstantiateMsg { count: 17, pong_code_id: 0 };
         let info = mock_info("creator", &coins(1000, "earth"));
 
         // we can just call .unwrap() to assert this was a success
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
+        // response contains 1 sub message
+        assert_eq!(1, res.messages.len());
 
         // it worked, let's query the state
         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
@@ -103,7 +142,7 @@ mod tests {
     fn increment() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { count: 17 };
+        let msg = InstantiateMsg { count: 17, pong_code_id: 0 };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -122,7 +161,7 @@ mod tests {
     fn reset() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { count: 17 };
+        let msg = InstantiateMsg { count: 17, pong_code_id: 0 };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 

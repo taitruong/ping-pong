@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use crate::helpers::CwTemplateContract;
+    use crate::helpers::PongTemplateContract;
     use crate::msg::InstantiateMsg;
     use cosmwasm_std::{Addr, Coin, Empty, Uint128};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
-    pub fn contract_template() -> Box<dyn Contract<Empty>> {
+    pub fn pong_contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
             crate::contract::execute,
             crate::contract::instantiate,
@@ -34,14 +34,14 @@ mod tests {
         })
     }
 
-    fn proper_instantiate() -> (App, CwTemplateContract) {
+    fn proper_instantiate() -> (App, PongTemplateContract) {
         let mut app = mock_app();
-        let cw_template_id = app.store_code(contract_template());
+        let pong_code_id = app.store_code(pong_contract_template());
 
         let msg = InstantiateMsg { count: 1i32 };
-        let cw_template_contract_addr = app
+        let pong_template_contract_addr = app
             .instantiate_contract(
-                cw_template_id,
+                pong_code_id,
                 Addr::unchecked(ADMIN),
                 &msg,
                 &[],
@@ -50,9 +50,9 @@ mod tests {
             )
             .unwrap();
 
-        let cw_template_contract = CwTemplateContract(cw_template_contract_addr);
+        let pong_template_contract = PongTemplateContract(pong_template_contract_addr);
 
-        (app, cw_template_contract)
+        (app, pong_template_contract)
     }
 
     mod count {
@@ -61,10 +61,10 @@ mod tests {
 
         #[test]
         fn count() {
-            let (mut app, cw_template_contract) = proper_instantiate();
+            let (mut app, pong_template_contract) = proper_instantiate();
 
             let msg = ExecuteMsg::Increment {};
-            let cosmos_msg = cw_template_contract.call(msg).unwrap();
+            let cosmos_msg = pong_template_contract.call(msg).unwrap();
             app.execute(Addr::unchecked(USER), cosmos_msg).unwrap();
         }
     }
