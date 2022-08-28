@@ -38,7 +38,7 @@ mod tests {
         let mut app = mock_app();
         let cw_template_id = app.store_code(contract_template());
 
-        let msg = InstantiateMsg { count: 1i32 };
+        let msg = InstantiateMsg { count: 0 };
         let cw_template_contract_addr = app
             .instantiate_contract(
                 cw_template_id,
@@ -57,7 +57,9 @@ mod tests {
 
     mod count {
         use super::*;
-        use crate::msg::ExecuteMsg;
+        use crate::msg::{ExecuteMsg, QueryMsg, GetCountResponse};
+        use assert_matches::assert_matches;
+        use cosmwasm_std::{QueryRequest, WasmQuery, to_binary, StdError};
 
         #[test]
         fn count() {
@@ -66,6 +68,15 @@ mod tests {
             let msg = ExecuteMsg::Increment {};
             let cosmos_msg = cw_template_contract.call(msg).unwrap();
             app.execute(Addr::unchecked(USER), cosmos_msg).unwrap();
+
+            let query_msg: QueryMsg = QueryMsg::GetCount {};
+            let response: Result<GetCountResponse, StdError> = app.wrap().query(&QueryRequest::Wasm(WasmQuery::Smart {
+                contract_addr: cw_template_contract.addr().to_string(),
+                msg: to_binary(&query_msg).unwrap()
+            }));
+            assert_matches!(
+                response,
+                Ok(GetCountResponse{count}) if count == 1);
         }
     }
 }
