@@ -116,3 +116,16 @@ In total AppResponse contains 6 events:
    "data":Some(Binary(0a09636f6e747261637430))
 }
 ```
+
+# Cargo workspace
+
+There is a main Cargo.toml file in root folder. It defines a Cargo Workspace and include all members in contracts/*
+
+This allows like building and testing all contracts from root folder:
+
+```bash
+$ cargo build # builds all contracts (pint and pong)
+$ cargo test # tests all contracts (pint and pong)
+$ cargo build -p ping # builds ping contract
+$ cargo test -p ping # tests ping contract
+```
