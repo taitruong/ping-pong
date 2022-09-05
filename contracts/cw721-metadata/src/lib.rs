@@ -135,4 +135,31 @@ mod tests {
         assert_eq!(nft_info.token_uri, mint_msg.token_uri);
         assert_eq!(nft_info.extension, mint_msg.extension);
     }
+
+    #[test]
+    fn transfer() {
+        let mut deps = mock_dependencies();
+
+        // instantiate contract
+        let info = mock_info(CREATOR, &[]);
+        let contract = instantiate_contract(deps.as_mut(), info.clone());
+
+        // mint
+        let token_id = "0001";
+        let owner = "minter";
+        mint(token_id.to_string(), owner.to_string(), &contract, deps.as_mut(), info.clone());
+
+        // transfer
+        let info = mock_info(owner, &[]);
+        let new_owner = "other";
+        let transfer_nft: ExecuteMsg<Extension> = ExecuteMsg::TransferNft {
+            recipient: new_owner.to_string(),
+            token_id: token_id.to_string()
+        };
+        let res = contract.execute(deps.as_mut(), mock_env(), info, transfer_nft).unwrap();
+
+        // assert
+        let recipient = res.attributes.iter().find(|a| a.key == "recipient").unwrap();
+        assert_eq!(recipient.value, new_owner.to_string());
+    }
 }
