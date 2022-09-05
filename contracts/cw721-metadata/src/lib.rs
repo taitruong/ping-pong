@@ -77,44 +77,62 @@ pub mod entry {
 mod tests {
     use super::*;
 
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cw721::Cw721Query;
+    use cosmwasm_std::{testing::{mock_dependencies, mock_env, mock_info}, MessageInfo, DepsMut};
+    use cw721::{Cw721Query};
+    use cw721_base::{ExecuteMsg};
 
     const CREATOR: &str = "creator";
 
-    #[test]
-    fn use_metadata_extension() {
-        let mut deps = mock_dependencies();
+    fn instantiate_contract<'a>(deps: DepsMut, info: MessageInfo) -> Cw721MetadataContract<'a> {
         let contract = Cw721MetadataContract::default();
 
-        let info = mock_info(CREATOR, &[]);
+        // instantiate contract
         let init_msg = InstantiateMsg {
-            name: "SpaceShips".to_string(),
-            symbol: "SPACE".to_string(),
+            name: "Ark NFT Multichain".to_string(),
+            symbol: "Ark Protocol".to_string(),
             minter: CREATOR.to_string(),
         };
         contract
-            .instantiate(deps.as_mut(), mock_env(), info.clone(), init_msg)
+            .instantiate(deps, mock_env(), info.clone(), init_msg)
             .unwrap();
+        contract
+    }
 
-        let token_id = "Enterprise";
+    fn mint<'a>(token_id: String, owner: String, contract: &Cw721MetadataContract, deps: DepsMut, info: MessageInfo) -> MintMsg<Extension> {
         let mint_msg = MintMsg {
             token_id: token_id.to_string(),
-            owner: "john".to_string(),
-            token_uri: Some("https://starships.example.com/Starship/Enterprise.json".into()),
+            owner,
+            token_uri: Some("https://foo.bar".into()),
             extension: Some(Metadata {
-                description: Some("Spaceship with Warp Drive".into()),
-                name: Some("Starship USS Enterprise".to_string()),
+                description: Some("Ark NFT available on any IBC chain".into()),
+                name: Some("Ark NFT #0001".to_string()),
                 ..Metadata::default()
             }),
         };
         let exec_msg = ExecuteMsg::Mint(mint_msg.clone());
         contract
-            .execute(deps.as_mut(), mock_env(), info, exec_msg)
+            .execute(deps, mock_env(), info, exec_msg)
             .unwrap();
 
-        let res = contract.nft_info(deps.as_ref(), token_id.into()).unwrap();
-        assert_eq!(res.token_uri, mint_msg.token_uri);
-        assert_eq!(res.extension, mint_msg.extension);
+        mint_msg
+
+    }
+
+    #[test]
+    fn use_metadata_extension() {
+        let mut deps = mock_dependencies();
+
+        // instantiate contract
+        let info = mock_info(CREATOR, &[]);
+        let contract = instantiate_contract(deps.as_mut(), info.clone());
+
+        // mint
+        let token_id = "0001";
+        let owner = "minter";
+        let mint_msg  = mint(token_id.to_string(), owner.to_string(), &contract, deps.as_mut(), info.clone());
+
+        let nft_info = contract.nft_info(deps.as_ref(), token_id.into()).unwrap();
+        assert_eq!(nft_info.token_uri, mint_msg.token_uri);
+        assert_eq!(nft_info.extension, mint_msg.extension);
     }
 }
